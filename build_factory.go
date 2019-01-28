@@ -479,7 +479,7 @@ func (b *BuildConfig) Analyze(ctx context.Context) error {
 	}
 
 	if b.Publish {
-		authHeader, err := authHeader(b.RepoName)
+		authHeader, err := authHeader(b.RepoName, b.RunImage)
 		if err != nil {
 			return err
 		}
@@ -530,7 +530,7 @@ func (b *BuildConfig) Analyze(ctx context.Context) error {
 	return nil
 }
 
-func authHeader(repoName string) (string, error) {
+func authHeader(repoName, runImage string) (string, error) {
 	r, err := name.ParseReference(repoName, name.WeakValidation)
 	if err != nil {
 		return "", err
@@ -539,7 +539,33 @@ func authHeader(repoName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return auth.Authorization()
+
+	repoAuth, err := auth.Authorization()
+	if err != nil {
+		return "", err
+	}
+
+	runImageRepo, err := name.ParseReference(runImage, name.WeakValidation)
+	if err != nil {
+		return "", err
+	}
+	auth, err = authn.DefaultKeychain.Resolve(runImageRepo.Context().Registry)
+	if err != nil {
+		return "", err
+	}
+
+	runImageAuth, err := auth.Authorization()
+	if err != nil {
+		return "", err
+	}
+
+	marshal, err := json.Marshal(map[string]string{
+		runImageRepo.Context().Registry.String(): runImageAuth,
+		r.Context().Registry.String():            repoAuth,
+	})
+
+	return string(marshal), err
+
 }
 
 func (b *BuildConfig) Build(ctx context.Context) error {
@@ -653,7 +679,7 @@ func (b *BuildConfig) Export(ctx context.Context) error {
 	}
 
 	if b.Publish {
-		authHeader, err := authHeader(b.RepoName)
+		authHeader, err := authHeader(b.RepoName, b.RunImage)
 		if err != nil {
 			return err
 		}
