@@ -21,7 +21,6 @@ func TestCommands(t *testing.T) {
 	spec.Run(t, "Commands", testCommands, spec.Parallel(), spec.Report(report.Terminal{}))
 }
 
-//move somewhere else
 //go:generate mockgen -package mocks -destination mocks/image.go github.com/buildpack/lifecycle/image Image
 
 func testCommands(t *testing.T, when spec.G, it spec.S) {
@@ -103,13 +102,15 @@ ERROR: failed to get image 'some/image': some local error
 				mockLocalImage.EXPECT().Found().Return(true, nil)
 
 				mockInspector.EXPECT().Inspect(mockRemoteImage).Return(pack.Builder{
-					LocalRunImages:   []string{"first/image", "second/image"},
-					DefaultRunImages: []string{"first/default", "second/default"},
+					RunImage:             "run/image",
+					LocalRunImageMirrors: []string{"first/image", "second/image"},
+					RunImageMirrors:      []string{"first/default", "second/default"},
 				}, nil)
 
 				mockInspector.EXPECT().Inspect(mockRemoteImage).Return(pack.Builder{
-					LocalRunImages:   []string{"first/local", "second/local"},
-					DefaultRunImages: []string{"first/local-default", "second/local-default"},
+					RunImage:             "run/image",
+					LocalRunImageMirrors: []string{"first/local", "second/local"},
+					RunImageMirrors:      []string{"first/local-default", "second/local-default"},
 				}, nil)
 
 				command.SetArgs([]string{
@@ -118,9 +119,11 @@ ERROR: failed to get image 'some/image': some local error
 
 				h.AssertNil(t, command.Execute())
 
-				h.AssertContains(t, outBuf.String(), `Remote
+			})
+			h.AssertContains(t, outBuf.String(), `Remote
 ------
-Run Images:
+Run Image: run/image
+Run Image Mirrors:
 	first/image (user-configured)
 	second/image (user-configured)
 	first/default
@@ -128,13 +131,14 @@ Run Images:
 
 Local
 -----
-Run Images:
+Run Image: run/image
+Run Image Mirrors:
 	first/local (user-configured)
 	second/local (user-configured)
 	first/local-default
 	second/local-default
+
 `)
-			})
 		})
 	})
 }
